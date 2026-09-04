@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Lalaloopsy: El Terror de las Tijeras</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#8e00cc">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lalaloopsy">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; touch-action:none; user-select:none; -webkit-font-smoothing:antialiased; }
   body { background:#000; display:flex; justify-content:center; align-items:center; width:100vw; height:100vh; overflow:hidden; }
@@ -1425,6 +1435,51 @@ function loop() {
   requestAnimationFrame(loop);
 }
 loop();
+
+// ═══════════════════════════════════════════════════════
+//  LOCAL HIGHSCORE
+// ═══════════════════════════════════════════════════════
+const HS_KEY = 'lalaloopsy_highscore';
+let highScore = parseInt(localStorage.getItem(HS_KEY) || '0', 10);
+
+function saveHighScore() {
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem(HS_KEY, highScore);
+  }
+}
+
+// Patch win/lose to save score
+const _origUpdate = update;
+function update() {
+  _origUpdate();
+  if (gs === GS.WIN || gs === GS.LOSE) saveHighScore();
+}
+
+// Show highscore in WIN/LOSE screens — patch drawWin & drawLose
+const _origDrawWin = drawWin;
+drawWin = function() {
+  _origDrawWin();
+  ctx.fillStyle='#a29bfe'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(`🏅 Récord: ${highScore} botones`, W/2, H/2+80);
+};
+const _origDrawLose = drawLose;
+drawLose = function() {
+  _origDrawLose();
+  ctx.fillStyle='#a29bfe'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(`🏅 Récord: ${highScore} botones`, W/2, H/2+75);
+};
+
+// ═══════════════════════════════════════════════════════
+//  SERVICE WORKER REGISTRATION
+// ═══════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('SW registrado:', reg.scope))
+      .catch(err => console.log('SW error:', err));
+  });
+}
 </script>
 </body>
 </html>
