@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Lalaloopsy: El Terror de las Tijeras</title>
 
 <!-- PWA -->
@@ -16,8 +16,19 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; touch-action:none; user-select:none; -webkit-font-smoothing:antialiased; }
-  body { background:#1a0030; display:flex; justify-content:center; align-items:center; width:100vw; height:100vh; overflow:hidden; }
-  canvas { display:block; image-rendering:auto; box-shadow:0 0 60px rgba(200,100,255,0.4); border-radius:12px; }
+  html { height: -webkit-fill-available; }
+  body {
+    background:#1a0030;
+    display:flex; justify-content:center; align-items:center;
+    width:100vw;
+    height: 100vh;
+    height: 100dvh;
+    min-height: -webkit-fill-available;
+    overflow:hidden;
+    position: fixed;
+    top: 0; left: 0;
+  }
+  canvas { display:block; image-rendering:auto; box-shadow:0 0 60px rgba(200,100,255,0.4); border-radius:12px; max-width:100%; max-height:100%; }
 </style>
 </head>
 <body>
@@ -28,11 +39,14 @@ const ctx = canvas.getContext('2d');
 
 // Fit a portrait phone-shaped canvas into any screen
 const maxW = 430, maxH = 900;
-const vw = window.innerWidth, vh = window.innerHeight;
+// Use visualViewport if available (accounts for mobile browser chrome/nav bars)
+const vw = (window.visualViewport ? window.visualViewport.width : window.innerWidth);
+const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
 const scale = Math.min(1, vw / maxW, vh / maxH);
 const W = Math.floor(maxW * scale);
 const H = Math.floor(maxH * scale);
 
+// Cap DPR at 2 to avoid oversized canvas on high-density screens
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
 canvas.width  = W * DPR;
 canvas.height = H * DPR;
@@ -355,7 +369,7 @@ function physicsStep(ent, pf, clampX=null) {
   if (ent.inv>0) ent.inv--;
 }
 
-function update() {
+var update = function() {
   bgT += 0.018;
   if (shake>0.3) { shakeX=(Math.random()-.5)*shake; shakeY=(Math.random()-.5)*shake; shake*=0.82; }
   else { shakeX=shakeY=shake=0; }
@@ -365,7 +379,7 @@ function update() {
   if (gs===GS.PLAY) updatePlay();
   else if (gs===GS.BOSS) updateBoss();
   attackNow = false;
-}
+};
 
 function updatePlay() {
   physicsStep(player, platforms);
@@ -1215,7 +1229,7 @@ function drawMenu() {
 }
 
 // ─── Win & Lose ──────────────────────────────────────
-function drawWin() {
+var drawWin = function() {
   const g=ctx.createLinearGradient(0,0,0,H);
   g.addColorStop(0,'#fceeff'); g.addColorStop(1,'#d4b8ff'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
   for (let i=0;i<30;i++) {
@@ -1234,7 +1248,7 @@ function drawWin() {
   ctx.shadowBlur=0; ctx.fillStyle='#fff'; ctx.font='bold 16px sans-serif'; ctx.fillText('🎀 Volver al Menú',W/2,H/2+119-pulse);
 }
 
-function drawLose() {
+var drawLose = function() {
   ctx.fillStyle='#070010'; ctx.fillRect(0,0,W,H);
   ctx.fillStyle=`rgba(100,0,0,${0.28+Math.sin(bgT*5)*0.18})`; ctx.fillRect(0,0,W,H);
   ctx.fillStyle='rgba(70,0,25,0.92)'; ctx.beginPath(); ctx.roundRect(W/2-158,H/2-175,316,325,22); ctx.fill();
@@ -1472,10 +1486,10 @@ function saveHighScore() {
 
 // Patch win/lose to save score
 const _origUpdate = update;
-function update() {
+update = function() {
   _origUpdate();
   if (gs === GS.WIN || gs === GS.LOSE) saveHighScore();
-}
+};
 
 // Show highscore in WIN/LOSE screens — patch drawWin & drawLose
 const _origDrawWin = drawWin;
