@@ -16,8 +16,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; touch-action:none; user-select:none; -webkit-font-smoothing:antialiased; }
-  body { background:#000; display:flex; justify-content:center; align-items:center; width:100vw; height:100vh; overflow:hidden; }
-  canvas { display:block; image-rendering:auto; box-shadow:0 0 60px rgba(255,150,220,0.25); }
+  body { background:#1a0030; display:flex; justify-content:center; align-items:center; width:100vw; height:100vh; overflow:hidden; }
+  canvas { display:block; image-rendering:auto; box-shadow:0 0 60px rgba(200,100,255,0.4); border-radius:12px; }
 </style>
 </head>
 <body>
@@ -25,14 +25,25 @@
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-const W = Math.min(window.innerWidth,  430);
-const H = Math.min(window.innerHeight, 900);
-const DPR = Math.min(window.devicePixelRatio || 1, 3);
+
+// Fit a portrait phone-shaped canvas into any screen
+const maxW = 430, maxH = 900;
+const vw = window.innerWidth, vh = window.innerHeight;
+const scale = Math.min(1, vw / maxW, vh / maxH);
+const W = Math.floor(maxW * scale);
+const H = Math.floor(maxH * scale);
+
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
 canvas.width  = W * DPR;
 canvas.height = H * DPR;
 canvas.style.width  = W + 'px';
 canvas.style.height = H + 'px';
+// Force the body background to show game color, not black
+document.body.style.background = '#1a0030';
 ctx.scale(DPR, DPR);
+// Immediately paint something so it's not black on slow load
+ctx.fillStyle = '#1a0030';
+ctx.fillRect(0, 0, W, H);
 ctx.imageSmoothingEnabled = true;
 if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
 
@@ -49,15 +60,24 @@ function drawSoftShadow(x, y, w, h, alpha=0.28) {
   ctx.restore();
 }
 
-// Polyfill roundRect
+// Polyfill roundRect — normalise all call forms to {tl,tr,br,bl}
 if (!ctx.roundRect) {
-  CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r) {
-    if (typeof r === 'number') r = {tl:r,tr:r,br:r,bl:r};
-    this.beginPath(); this.moveTo(x+r.tl, y); this.lineTo(x+w-r.tr, y);
-    this.arcTo(x+w, y, x+w, y+r.tr, r.tr); this.lineTo(x+w, y+h-r.br);
-    this.arcTo(x+w, y+h, x+w-r.br, y+h, r.br); this.lineTo(x+r.bl, y+h);
-    this.arcTo(x, y+h, x, y+h-r.bl, r.bl); this.lineTo(x, y+r.tl);
-    this.arcTo(x, y, x+r.tl, y, r.tl); this.closePath(); return this;
+  CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r=0) {
+    let tl,tr,br,bl;
+    if (Array.isArray(r)) {
+      [tl=0,tr=tl,br=tl,bl=tr] = r;
+    } else if (typeof r === 'object' && r !== null) {
+      tl = r.tl||0; tr = r.tr||0; br = r.br||0; bl = r.bl||0;
+    } else {
+      tl = tr = br = bl = +r || 0;
+    }
+    this.beginPath();
+    this.moveTo(x+tl, y);
+    this.lineTo(x+w-tr, y);   this.arcTo(x+w, y,   x+w, y+tr,   tr);
+    this.lineTo(x+w, y+h-br); this.arcTo(x+w, y+h, x+w-br, y+h, br);
+    this.lineTo(x+bl, y+h);   this.arcTo(x,   y+h, x,   y+h-bl, bl);
+    this.lineTo(x, y+tl);     this.arcTo(x,   y,   x+tl, y,     tl);
+    this.closePath(); return this;
   };
 }
 
@@ -890,14 +910,14 @@ function drawMale(px, py, dir, ch) {
   const hairGrad = ctx.createLinearGradient(0,-62,0,-45);
   hairGrad.addColorStop(0,'#2a2a2a'); hairGrad.addColorStop(1,'#111');
   ctx.fillStyle=hairGrad;
-  ctx.beginPath(); ctx.roundRect(-16,-62,32,18,{tl:12,tr:12,bl:2,br:2}); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(-16,-62,32,18,10); ctx.fill();
   // hair highlight
   ctx.fillStyle='rgba(255,255,255,0.1)';
   ctx.beginPath(); ctx.ellipse(-4,-57,8,3,0,0,Math.PI*2); ctx.fill();
 
   // Barba (beard) - dark, covers jaw area
   ctx.fillStyle='#2a2a2a';
-  ctx.beginPath(); ctx.roundRect(-14,-26,28,14,{tl:2,tr:2,bl:8,br:8}); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(-14,-26,28,14,6); ctx.fill();
   // beard stubble texture
   ctx.fillStyle='#1a1a1a';
   for (let bx=-12; bx<=10; bx+=4) {
@@ -1440,12 +1460,13 @@ loop();
 //  LOCAL HIGHSCORE
 // ═══════════════════════════════════════════════════════
 const HS_KEY = 'lalaloopsy_highscore';
-let highScore = parseInt(localStorage.getItem(HS_KEY) || '0', 10);
+let highScore = 0;
+try { highScore = parseInt(localStorage.getItem(HS_KEY) || '0', 10); } catch(e) {}
 
 function saveHighScore() {
   if (score > highScore) {
     highScore = score;
-    localStorage.setItem(HS_KEY, highScore);
+    try { localStorage.setItem(HS_KEY, highScore); } catch(e) {}
   }
 }
 
@@ -1473,11 +1494,9 @@ drawLose = function() {
 // ═══════════════════════════════════════════════════════
 //  SERVICE WORKER REGISTRATION
 // ═══════════════════════════════════════════════════════
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js')
-      .then(reg => console.log('SW registrado:', reg.scope))
-      .catch(err => console.log('SW error:', err));
+    navigator.serviceWorker.register('sw.js').catch(() => {});
   });
 }
 </script>
